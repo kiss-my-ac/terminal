@@ -1,0 +1,160 @@
+import { useState, useEffect, useRef } from "react";
+
+interface CommandInputProps {
+  onSubmit: (command: string) => void;
+}
+
+const CommandInput = ({ onSubmit }: CommandInputProps) => {
+  const [command, setCommand] = useState("");
+  const [commandHistory, setCommandHistory] = useState<string[]>([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    // Focus input on component mount
+    if (inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, []);
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" && command.trim()) {
+      onSubmit(command);
+      setCommandHistory([...commandHistory, command]);
+      setCommand("");
+      setHistoryIndex(-1);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      if (commandHistory.length > 0 && historyIndex < commandHistory.length - 1) {
+        const newIndex = historyIndex + 1;
+        setHistoryIndex(newIndex);
+        setCommand(commandHistory[commandHistory.length - 1 - newIndex]);
+      }
+    } else if (e.key === "ArrowDown") {
+      e.preventDefault();
+      if (historyIndex > 0) {
+        const newIndex = historyIndex - 1;
+        setHistoryIndex(newIndex);
+        setCommand(commandHistory[commandHistory.length - 1 - newIndex]);
+      } else if (historyIndex === 0) {
+        setHistoryIndex(-1);
+        setCommand("");
+      }
+    }
+  };
+
+  const handleFocus = () => {
+    // Auto-complete "./mygrep.sh" if the input is empty
+    if (command.trim() === "") {
+      setCommand("./mygrep.sh ");
+    }
+  };
+
+  return (
+    <div className="flex items-center">
+      <span className="text-green-400 mr-2">user@mygrep:~$</span>
+      <input
+        ref={inputRef}
+        type="text"
+        value={command}
+        onChange={(e) => setCommand(e.target.value)}
+        onKeyDown={handleKeyDown}
+        onFocus={handleFocus}
+        onClick={handleFocus}
+        className="flex-1 bg-transparent outline-none border-none text-gray-200 font-mono caret-green-400"
+        autoFocus
+      />
+    </div>
+  );
+};
+
+export default CommandInput;
+    
+    
+    import { useState } from "react";
+import CommandInput from "./CommandInput";
+import TerminalOutput from "./TerminalOutput";
+import { executeGrep } from "@/utils/mygrep";
+import { toast } from "@/components/ui/use-toast";
+
+const testFile = `Hello world
+This is a test
+another test line
+HELLO AGAIN
+Don't match this line
+Testing one two three`;
+
+const Terminal = () => {
+  const [history, setHistory] = useState<Array<{ command: string; output: string[] }>>([
+    {
+      command: "",
+      output: [
+        "Welcome to mygrep.sh - A mini version of the grep command",
+        "Type './mygrep.sh --help' for usage information",
+        ""
+      ]
+    }
+  ]);
+
+  const handleCommand = (command: string) => {
+    // Split the command into arguments
+    const args = command.trim().split(/\s+/);
+    let output: string[] = [];
+
+    if (args[0] !== "./mygrep.sh") {
+      output = ["Command not found. Use './mygrep.sh' to start."];
+    } else if (args.length === 1) {
+      output = ["Missing arguments. Type './mygrep.sh --help' for usage information."];
+    } else if (args[1] === "--help") {
+      output = [
+        "Usage: ./mygrep.sh [OPTIONS] PATTERN FILE",
+        "",
+        "Options:",
+        "  -n         Show line numbers for each match",
+        "  -v         Invert the match (print lines that do not match)",
+        "  --help     Display this help message",
+        "",
+        "Examples:",
+        "  ./mygrep.sh hello testfile.txt",
+        "  ./mygrep.sh -n hello testfile.txt",
+        "  ./mygrep.sh -vn hello testfile.txt",
+        ""
+      ];
+    } else {
+      try {
+        // Always use testfile.txt as the content
+        output = executeGrep(args.slice(1), testFile);
+      } catch (error) {
+        if (error instanceof Error) {
+          output = [error.message];
+          toast({
+            title: "Error",
+            description: error.message,
+            variant: "destructive"
+          });
+        } else {
+          output = ["An unknown error occurred"];
+        }
+      }
+    }
+
+    setHistory([...history, { command, output }]);
+  };
+
+  return (
+    <div className="bg-gray-800 rounded-lg overflow-hidden border border-gray-700 shadow-lg">
+      <div className="flex items-center px-4 py-2 bg-gray-900">
+        <div className="flex space-x-2">
+          <div className="w-3 h-3 rounded-full bg-red-500"></div>
+          <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+          <div className="w-3 h-3 rounded-full bg-green-500"></div>
+        </div>
+        <div className="flex-1 text-center">
+          <span className="text-gray-400 text-sm">terminal</span>
+        </div>
+      </div>
+      
+      <div className="p-4 h-[500px] overflow-y-auto font-mono text-sm">
+        {history.map((entry, index) => (
+          <div key={index} className="mb-4">
+            {entry.comma
